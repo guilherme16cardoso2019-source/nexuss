@@ -1,0 +1,352 @@
+// ==========================================================
+// Nexus — Prisma Schema
+// PostgreSQL + Prisma ORM
+// ==========================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------
+// Enums
+// ----------------------------------------------------------
+
+enum Role {
+  STUDENT
+  TEACHER
+  SCHOOL_ADMIN
+  SUPER_ADMIN
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+}
+
+enum BattleStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum XPSourceType {
+  ACTIVITY_COMPLETED
+  CHALLENGE_COMPLETED
+  BATTLE_WON
+  BATTLE_PARTICIPATED
+  ACHIEVEMENT_UNLOCKED
+  STREAK_BONUS
+}
+
+enum LeaderboardScope {
+  GLOBAL
+  SCHOOL
+  SUBJECT
+}
+
+// ----------------------------------------------------------
+// Core identity
+// ----------------------------------------------------------
+
+model User {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  passwordHash String
+  role         Role
+  status       AccountStatus @default(ACTIVE)
+
+  schoolId String?
+  school   School? @relation(fields: [schoolId], references: [id])
+
+  studentProfile    StudentProfile?
+  teacherProfile    TeacherProfile?
+  schoolAdminProfile SchoolAdminProfile?
+
+  xpTransactions XPTransaction[]
+  achievements   UserAchievement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([role])
+}
+
+// ----------------------------------------------------------
+// School
+// ----------------------------------------------------------
+
+model School {
+  id   String @id @default(cuid())
+  name String @unique
+
+  users    User[]
+  subjects SchoolSubject[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ----------------------------------------------------------
+// Role profiles
+// ----------------------------------------------------------
+
+model StudentProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  gradeYear String
+
+  level        Int @default(1)
+  currentStreak Int @default(0)
+  longestStreak Int @default(0)
+  lastActiveAt DateTime?
+
+  subjects        StudentSubject[]
+  progress        Progress[]
+  battlesAsPlayer1 Battle[] @relation("Player1")
+  battlesAsPlayer2 Battle[] @relation("Player2")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TeacherProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  subjects   TeacherSubject[]
+  activities Activity[]
+  challenges Challenge[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SchoolAdminProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  position String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ----------------------------------------------------------
+// Subjects
+// ----------------------------------------------------------
+
+model Subject {
+  id   String @id @default(cuid())
+  name String @unique
+  slug String @unique
+
+  schools  SchoolSubject[]
+  students StudentSubject[]
+  teachers TeacherSubject[]
+  activities Activity[]
+  challenges Challenge[]
+  battles    Battle[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Join tables (explicit, so extra fields can be added later e.g. enrolledAt)
+
+model SchoolSubject {
+  id        String  @id @default(cuid())
+  schoolId  String
+  subjectId String
+  school    School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([schoolId, subjectId])
+}
+
+model StudentSubject {
+  id        String  @id @default(cuid())
+  studentId String
+  subjectId String
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject   Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  progress Progress?
+
+  createdAt DateTime @default(now())
+
+  @@unique([studentId, subjectId])
+}
+
+model TeacherSubject {
+  id        String  @id @default(cuid())
+  teacherId String
+  subjectId String
+  teacher   TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subject   Subject        @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, subjectId])
+}
+
+// ----------------------------------------------------------
+// Learning content
+// ----------------------------------------------------------
+
+model Activity {
+  id          String  @id @default(cuid())
+  title       String
+  description String
+  subjectId   String
+  subject     Subject @relation(fields: [subjectId], references: [id])
+  teacherId   String
+  teacher     TeacherProfile @relation(fields: [teacherId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Challenge {
+  id          String  @id @default(cuid())
+  title       String
+  description String
+  subjectId   String
+  subject     Subject @relation(fields: [subjectId], references: [id])
+  teacherId   String
+  teacher     TeacherProfile @relation(fields: [teacherId], references: [id])
+  xpReward    Int     @default(10)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Progress {
+  id              String @id @default(cuid())
+  studentId       String
+  student         StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentSubjectId String @unique
+  studentSubject  StudentSubject @relation(fields: [studentSubjectId], references: [id], onDelete: Cascade)
+
+  percentComplete Int @default(0)
+
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId])
+}
+
+// ----------------------------------------------------------
+// Battle system (PvP)
+// ----------------------------------------------------------
+
+model Battle {
+  id        String       @id @default(cuid())
+  subjectId String
+  subject   Subject      @relation(fields: [subjectId], references: [id])
+
+  player1Id String
+  player1   StudentProfile @relation("Player1", fields: [player1Id], references: [id])
+  player2Id String
+  player2   StudentProfile @relation("Player2", fields: [player2Id], references: [id])
+
+  status    BattleStatus @default(PENDING)
+  winnerId  String?
+
+  player1Score Int @default(0)
+  player2Score Int @default(0)
+
+  questions BattleQuestion[]
+
+  createdAt   DateTime  @default(now())
+  acceptedAt  DateTime?
+  completedAt DateTime?
+
+  @@index([player1Id])
+  @@index([player2Id])
+  @@index([status])
+}
+
+model BattleQuestion {
+  id       String @id @default(cuid())
+  battleId String
+  battle   Battle @relation(fields: [battleId], references: [id], onDelete: Cascade)
+
+  text          String
+  options       Json     // e.g. ["A", "B", "C", "D"]
+  correctOption Int
+  order         Int
+
+  answers BattleAnswer[]
+
+  @@unique([battleId, order])
+}
+
+model BattleAnswer {
+  id               String        @id @default(cuid())
+  battleQuestionId String
+  battleQuestion   BattleQuestion @relation(fields: [battleQuestionId], references: [id], onDelete: Cascade)
+
+  playerId       String   // StudentProfile.id of whoever answered
+  selectedOption Int
+  isCorrect      Boolean
+  answeredAt     DateTime @default(now())
+
+  @@unique([battleQuestionId, playerId])
+}
+
+// ----------------------------------------------------------
+// Gamification
+// ----------------------------------------------------------
+
+model XPTransaction {
+  id     String       @id @default(cuid())
+  userId String
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  amount     Int
+  sourceType XPSourceType
+  sourceId   String?      // e.g. battleId, challengeId — not a hard FK, kept flexible
+  note       String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Achievement {
+  id          String @id @default(cuid())
+  code        String @unique // e.g. "FIRST_BATTLE_WIN"
+  title       String
+  description String
+  xpReward    Int    @default(0)
+
+  users UserAchievement[]
+}
+
+model UserAchievement {
+  id            String @id @default(cuid())
+  userId        String
+  user          User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  unlockedAt DateTime @default(now())
+
+  @@unique([userId, achievementId])
+}
+
+// Leaderboard is intentionally NOT a stored table — it's computed at read
+// time from XPTransaction (grouped by scope: GLOBAL / SCHOOL / SUBJECT) so
+// it can never drift out of sync with the XP ledger. See lib/services/leaderboardService.ts.
