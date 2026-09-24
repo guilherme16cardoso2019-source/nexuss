@@ -88,14 +88,36 @@ model User {
 // ----------------------------------------------------------
 
 model School {
-  id   String @id @default(cuid())
-  name String @unique
+  id   String  @id @default(cuid())
+  name String  @unique
+  code String? @unique
 
   users    User[]
   subjects SchoolSubject[]
+  classes  Class[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// A "turma" — belongs to exactly one school. `level` is derived once here
+// (e.g. "Ensino Médio") so students never type it manually — it flows from
+// School -> Class -> level automatically.
+model Class {
+  id       String @id @default(cuid())
+  name     String // e.g. "1º Ano A"
+  level    String // e.g. "Ensino Médio"
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  students StudentProfile[]
+  teachers TeacherClass[]
+  activities Activity[]
+  challenges Challenge[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([schoolId, name])
 }
 
 // ----------------------------------------------------------
@@ -107,7 +129,8 @@ model StudentProfile {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  gradeYear String
+  classId String?
+  class   Class?  @relation(fields: [classId], references: [id])
 
   level        Int @default(1)
   currentStreak Int @default(0)
@@ -129,6 +152,7 @@ model TeacherProfile {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   subjects   TeacherSubject[]
+  classes    TeacherClass[]
   activities Activity[]
   challenges Challenge[]
 
@@ -162,6 +186,7 @@ model Subject {
   activities Activity[]
   challenges Challenge[]
   battles    Battle[]
+  topics     Topic[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -203,6 +228,31 @@ model TeacherSubject {
   @@unique([teacherId, subjectId])
 }
 
+model TeacherClass {
+  id        String @id @default(cuid())
+  teacherId String
+  classId   String
+  teacher   TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  class     Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, classId])
+}
+
+// Predefined topics within a subject (e.g. Mathematics -> Equations,
+// Functions, Geometry...). Teachers pick from this list when creating
+// content — they never type a topic freehand.
+model Topic {
+  id        String  @id @default(cuid())
+  name      String
+  subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  activities Activity[]
+  challenges Challenge[]
+
+  @@unique([subjectId, name])
+}
+
 // ----------------------------------------------------------
 // Learning content
 // ----------------------------------------------------------
@@ -213,6 +263,10 @@ model Activity {
   description String
   subjectId   String
   subject     Subject @relation(fields: [subjectId], references: [id])
+  topicId     String?
+  topic       Topic?  @relation(fields: [topicId], references: [id])
+  classId     String?
+  class       Class?  @relation(fields: [classId], references: [id])
   teacherId   String
   teacher     TeacherProfile @relation(fields: [teacherId], references: [id])
 
@@ -226,6 +280,10 @@ model Challenge {
   description String
   subjectId   String
   subject     Subject @relation(fields: [subjectId], references: [id])
+  topicId     String?
+  topic       Topic?  @relation(fields: [topicId], references: [id])
+  classId     String?
+  class       Class?  @relation(fields: [classId], references: [id])
   teacherId   String
   teacher     TeacherProfile @relation(fields: [teacherId], references: [id])
   xpReward    Int     @default(10)

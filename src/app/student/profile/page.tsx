@@ -5,8 +5,9 @@ export default async function StudentProfilePage() {
   const user = await requireRoleOrRedirect(["STUDENT"]);
   const profile = user.studentProfile!;
 
-  const [school, xpAgg] = await Promise.all([
+  const [school, cls, xpAgg] = await Promise.all([
     prisma.school.findUnique({ where: { id: user.schoolId! } }),
+    profile.classId ? prisma.class.findUnique({ where: { id: profile.classId } }) : null,
     prisma.xPTransaction.aggregate({ where: { userId: user.id }, _sum: { amount: true } }),
   ]);
 
@@ -20,8 +21,9 @@ export default async function StudentProfilePage() {
         <Field label="Name" value={user.name} />
         <Field label="Email" value={user.email} />
         <Field label="School" value={school?.name ?? "—"} />
-        <Field label="Grade / Year" value={profile.gradeYear} />
-        <Field label="Level" value={String(profile.level)} />
+        <Field label="Class" value={cls?.name ?? "No class assigned"} />
+        <Field label="School Level" value={cls?.level ?? "—"} />
+        <Field label="XP Level" value={String(profile.level)} />
         <Field label="Total XP" value={String(totalXp)} />
         <Field label="Current Streak" value={`${profile.currentStreak} days`} />
       </div>

@@ -16,14 +16,48 @@ const SUBJECTS = [
   "Programming",
 ];
 
-async function seedSubjects() {
+// Predefined topics per subject — teachers pick from these, never type
+// their own. Reasonable defaults; extend anytime by editing this list.
+const TOPICS: Record<string, string[]> = {
+  mathematics: ["Equations", "Functions", "Geometry", "Percentage", "Statistics", "Probability", "Trigonometry"],
+  portuguese: ["Grammar", "Interpretation", "Literature", "Essay Writing", "Syntax"],
+  english: ["Grammar", "Vocabulary", "Reading Comprehension", "Conversation"],
+  physics: ["Kinematics", "Dynamics", "Energy", "Electricity", "Waves"],
+  chemistry: ["Atomic Structure", "Chemical Bonds", "Reactions", "Organic Chemistry"],
+  biology: ["Cell Biology", "Genetics", "Ecology", "Human Body", "Evolution"],
+  history: ["Ancient History", "Middle Ages", "Modern Era", "Brazilian History", "World Wars"],
+  geography: ["Physical Geography", "Human Geography", "Climate", "Cartography"],
+  technology: ["Digital Literacy", "Internet Safety", "Hardware Basics", "Productivity Tools"],
+  programming: ["Logic & Algorithms", "Variables & Loops", "Functions", "Web Basics"],
+};
+
+// Default classes auto-created for every new school so teachers/students
+// can register immediately, without an admin having to configure classes
+// first. Admins can still add more later.
+const DEFAULT_CLASSES = [
+  { name: "1º Ano A", level: "Ensino Médio" },
+  { name: "1º Ano B", level: "Ensino Médio" },
+  { name: "2º Ano A", level: "Ensino Médio" },
+  { name: "2º Ano B", level: "Ensino Médio" },
+  { name: "3º Ano A", level: "Ensino Médio" },
+];
+
+async function seedSubjectsAndTopics() {
   for (const name of SUBJECTS) {
     const slug = name.toLowerCase();
-    await prisma.subject.upsert({
+    const subject = await prisma.subject.upsert({
       where: { slug },
       update: {},
       create: { name, slug },
     });
+
+    for (const topicName of TOPICS[slug] ?? []) {
+      await prisma.topic.upsert({
+        where: { subjectId_name: { subjectId: subject.id, name: topicName } },
+        update: {},
+        create: { subjectId: subject.id, name: topicName },
+      });
+    }
   }
 }
 
@@ -33,9 +67,7 @@ async function seedSuperAdmin() {
   const name = process.env.ADMIN_NAME ?? "Nexus Admin";
 
   if (!email || !password) {
-    console.warn(
-      "ADMIN_EMAIL / ADMIN_PASSWORD not set — skipping SUPER_ADMIN creation."
-    );
+    console.warn("ADMIN_EMAIL / ADMIN_PASSWORD not set — skipping SUPER_ADMIN creation.");
     return;
   }
 
@@ -56,7 +88,7 @@ async function seedDevData() {
   const school = await prisma.school.upsert({
     where: { name: "Nexus Demo High School" },
     update: {},
-    create: { name: "Nexus Demo High School" },
+    create: { name: "Nexus Demo High School", code: "NEXUS-DEMO" },
   });
 
   const math = await prisma.subject.findUniqueOrThrow({ where: { slug: "mathematics" } });
@@ -73,6 +105,17 @@ async function seedDevData() {
     create: { schoolId: school.id, subjectId: programming.id },
   });
 
+  for (const c of DEFAULT_CLASSES) {
+    await prisma.class.upsert({
+      where: { schoolId_name: { schoolId: school.id, name: c.name } },
+      update: {},
+      create: { schoolId: school.id, name: c.name, level: c.level },
+    });
+  }
+  const class1A = await prisma.class.findUniqueOrThrow({
+    where: { schoolId_name: { schoolId: school.id, name: "1º Ano A" } },
+  });
+
   const studentPasswordHash = await bcrypt.hash("Student123!", 12);
   const existingStudent = await prisma.user.findUnique({ where: { email: "student@nexus.dev" } });
   if (!existingStudent) {
@@ -85,7 +128,7 @@ async function seedDevData() {
         schoolId: school.id,
         studentProfile: {
           create: {
-            gradeYear: "10th Grade",
+            classId: class1A.id,
             subjects: { create: [{ subjectId: math.id }, { subjectId: programming.id }] },
           },
         },
@@ -104,7 +147,10 @@ async function seedDevData() {
         role: "TEACHER",
         schoolId: school.id,
         teacherProfile: {
-          create: { subjects: { create: [{ subjectId: math.id }] } },
+          create: {
+            subjects: { create: [{ subjectId: math.id }] },
+            classes: { create: [{ classId: class1A.id }] },
+          },
         },
       },
     });
@@ -134,7 +180,7 @@ async function seedDevData() {
 }
 
 async function main() {
-  await seedSubjects();
+  await seedSubjectsAndTopics();
   await seedSuperAdmin();
   await seedDevData();
 }

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireRoleOrRedirect } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
@@ -18,7 +19,9 @@ export default async function SchoolAdminDashboard() {
       <p className="text-nexus-textMuted mb-8">School Overview</p>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-10">
-        <Stat label="Students" value={studentCount} />
+        <Link href="/school/students">
+          <Stat label="Students (click to view)" value={studentCount} />
+        </Link>
         <Stat label="Teachers" value={teacherCount} />
         <Stat label="Subjects" value={subjects.length} />
       </div>

@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
 export const dynamic = "force-dynamic";
+
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 type Subject = { id: string; name: string };
 type School = { id: string; name: string };
+type Class = { id: string; name: string; level: string };
 
 const ROLE_LABELS: Record<string, string> = {
   student: "Student",
@@ -20,6 +22,7 @@ export default function RegisterPage({ params }: { params: { role: string } }) {
 
   const [schools, setSchools] = useState<School[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [classes, setClasses] = useState<Class[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -30,9 +33,12 @@ export default function RegisterPage({ params }: { params: { role: string } }) {
     password: "",
     confirmPassword: "",
     schoolId: "",
-    gradeYear: "",
+    schoolName: "",
+    schoolCode: "",
+    classId: "",
+    classIds: [] as string[],
+    subjectId: "",
     position: "",
-    subjectIds: [] as string[],
   });
 
   useEffect(() => {
@@ -40,16 +46,27 @@ export default function RegisterPage({ params }: { params: { role: string } }) {
     fetch("/api/subjects").then((r) => r.json()).then(setSubjects);
   }, []);
 
+  // Classes are scoped to the chosen school — reload whenever it changes.
+  useEffect(() => {
+    if (!form.schoolId) {
+      setClasses([]);
+      return;
+    }
+    fetch(`/api/classes?schoolId=${form.schoolId}`)
+      .then((r) => r.json())
+      .then(setClasses);
+  }, [form.schoolId]);
+
   if (!ROLE_LABELS[role]) {
     return <main className="p-10 text-center">Unknown registration role.</main>;
   }
 
-  function toggleSubject(id: string) {
+  function toggleClass(id: string) {
     setForm((f) => ({
       ...f,
-      subjectIds: f.subjectIds.includes(id)
-        ? f.subjectIds.filter((s) => s !== id)
-        : [...f.subjectIds, id],
+      classIds: f.classIds.includes(id)
+        ? f.classIds.filter((c) => c !== id)
+        : [...f.classIds, id],
     }));
   }
 
@@ -74,6 +91,8 @@ export default function RegisterPage({ params }: { params: { role: string } }) {
     setSuccess(true);
     setTimeout(() => router.push("/login"), 1200);
   }
+
+  const selectedClass = classes.find((c) => c.id === form.classId);
 
   return (
     <main className="min-h-screen flex items-center justify-center px-6 py-12 bg-nexus-bg">
@@ -130,60 +149,104 @@ export default function RegisterPage({ params }: { params: { role: string } }) {
             className="bg-nexus-bg border border-nexus-border rounded-lg px-3 py-2 text-sm"
           />
 
-          <select
-            required
-            value={form.schoolId}
-            onChange={(e) => setForm({ ...form, schoolId: e.target.value })}
-            className="bg-nexus-bg border border-nexus-border rounded-lg px-3 py-2 text-sm"
-          >
-            <option value="">Select School</option>
-            {schools.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-
-          {role === "student" && (
-            <input
-              placeholder="Grade / Year"
-              required
-              value={form.gradeYear}
-              onChange={(e) => setForm({ ...form, gradeYear: e.target.value })}
-              className="bg-nexus-bg border border-nexus-border rounded-lg px-3 py-2 text-sm"
-            />
-          )}
-
-          {role === "school_admin" && (
-            <input
-              placeholder="Position"
-              required
-              value={form.position}
-              onChange={(e) => setForm({ ...form, position: e.target.value })}
-              className="bg-nexus-bg border border-nexus-border rounded-lg px-3 py-2 text-sm"
-            />
-          )}
-
-          {(role === "student" || role === "teacher") && (
-            <div>
-              <p className="text-xs text-nexus-textMuted mb-2">
-                {role === "student" ? "Subjects / Interests" : "Subjects Taught"}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {subjects.map((s) => (
-                  <button
-                    type="button"
-                    key={s.id}
-                    onClick={() => toggleSubject(s.id)}
-                    className={`px-3 py-1 rounded-full text-xs border transition ${
-                      form.subjectIds.includes(s.id)
-                        ? "bg-nexus-primary border-nexus-primary"
-                        : "border-nexus-border text-nexus-textMuted"
-                    }`}
-                  >
-                    {s.name}
-                  </button>
+          {role === "school_admin" ? (
+            <>
+              <input
+                placeholder="School Name"
+                required
+                value={form.schoolName}
+                onChange={(e) => setForm({ ...form, schoolName: e.target.value })}
+                className="bg-nexus-bg border border-nexus-border rounded-lg px-3 py-2 text-sm"
+              />
+              <input
+                placeholder="School Code (optional)"
+                value={form.schoolCode}
+                onChange={(e) => setForm({ ...form, schoolCode: e.target.value })}
+                className="bg-nexus-bg border border-nexus-border rounded-lg px-3 py-2 text-sm"
+              />
+              <input
+                placeholder="Position (e.g. Principal)"
+                required
+                value={form.position}
+                onChange={(e) => setForm({ ...form, position: e.target.value })}
+                className="bg-nexus-bg border border-nexus-border rounded-lg px-3 py-2 text-sm"
+              />
+            </>
+          ) : (
+            <>
+              <select
+                required
+                value={form.schoolId}
+                onChange={(e) => setForm({ ...form, schoolId: e.target.value, classId: "", classIds: [] })}
+                className="bg-nexus-bg border border-nexus-border rounded-lg px-3 py-2 text-sm"
+              >
+                <option value="">Select School</option>
+                {schools.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
-              </div>
-            </div>
+              </select>
+
+              {role === "student" && (
+                <>
+                  <select
+                    required
+                    value={form.classId}
+                    onChange={(e) => setForm({ ...form, classId: e.target.value })}
+                    disabled={!form.schoolId}
+                    className="bg-nexus-bg border border-nexus-border rounded-lg px-3 py-2 text-sm disabled:opacity-50"
+                  >
+                    <option value="">Select Class</option>
+                    {classes.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                  {selectedClass && (
+                    <p className="text-xs text-nexus-textMuted -mt-2">
+                      Level: <span className="text-nexus-primaryLight">{selectedClass.level}</span> (set automatically)
+                    </p>
+                  )}
+                </>
+              )}
+
+              {role === "teacher" && (
+                <>
+                  <select
+                    required
+                    value={form.subjectId}
+                    onChange={(e) => setForm({ ...form, subjectId: e.target.value })}
+                    className="bg-nexus-bg border border-nexus-border rounded-lg px-3 py-2 text-sm"
+                  >
+                    <option value="">Select Subject</option>
+                    {subjects.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+
+                  <div>
+                    <p className="text-xs text-nexus-textMuted mb-2">Classes you teach</p>
+                    <div className="flex flex-wrap gap-2">
+                      {classes.length === 0 && (
+                        <p className="text-xs text-nexus-textMuted">Select a school first.</p>
+                      )}
+                      {classes.map((c) => (
+                        <button
+                          type="button"
+                          key={c.id}
+                          onClick={() => toggleClass(c.id)}
+                          className={`px-3 py-1 rounded-full text-xs border transition ${
+                            form.classIds.includes(c.id)
+                              ? "bg-nexus-primary border-nexus-primary"
+                              : "border-nexus-border text-nexus-textMuted"
+                          }`}
+                        >
+                          {c.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
           )}
 
           <button

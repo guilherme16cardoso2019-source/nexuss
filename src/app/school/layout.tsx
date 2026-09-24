@@ -3,6 +3,7 @@ import Link from "next/link";
 const LINKS = [
   { href: "/school/dashboard", label: "Dashboard" },
   { href: "/school/students", label: "Students" },
+  { href: "/school/classes", label: "Classes" },
 ];
 
 export default function SchoolLayout({ children }: { children: React.ReactNode }) {

@@ -8,30 +8,42 @@ const baseFields = {
   schoolId: z.string().cuid("Select a valid school"),
 };
 
+// Student: picks an existing school, then a class from that school.
+// Level/grade is derived from the class — never typed manually.
+// They are auto-enrolled in every subject their school offers.
 export const studentRegisterSchema = z
   .object({
     ...baseFields,
-    gradeYear: z.string().min(1, "Grade/Year is required"),
-    subjectIds: z.array(z.string().cuid()).min(1, "Select at least one subject"),
+    classId: z.string().cuid("Select a valid class"),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
   });
 
+// Teacher: picks an existing school, ONE predefined subject, and one or
+// more classes they teach at that school — all selected, never typed.
 export const teacherRegisterSchema = z
   .object({
     ...baseFields,
-    subjectIds: z.array(z.string().cuid()).min(1, "Select at least one subject"),
+    subjectId: z.string().cuid("Select a subject"),
+    classIds: z.array(z.string().cuid()).min(1, "Select at least one class"),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
   });
 
+// School admin: creates their OWN school as part of registration — never
+// selects an existing one. Name + optional code.
 export const schoolAdminRegisterSchema = z
   .object({
-    ...baseFields,
+    name: baseFields.name,
+    email: baseFields.email,
+    password: baseFields.password,
+    confirmPassword: baseFields.confirmPassword,
+    schoolName: z.string().min(2, "School name is required"),
+    schoolCode: z.string().optional(),
     position: z.string().min(2, "Position is required"),
   })
   .refine((data) => data.password === data.confirmPassword, {
