@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: "Nexus — Learn. Connect. Compete. Evolve.",
   description:
     "Nexus is an interactive educational platform connecting students, teachers and schools through learning, challenges and collaboration.",
+  icons: { icon: "/logo-icon.png" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

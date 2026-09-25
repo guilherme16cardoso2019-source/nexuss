@@ -5,7 +5,7 @@ export default function LandingPage() {
     <main>
       {/* Navbar */}
       <nav className="flex items-center justify-between px-6 md:px-12 py-5 border-b border-nexus-border sticky top-0 bg-nexus-bg/90 backdrop-blur z-50">
-        <span className="text-xl font-bold tracking-tight">NEXUS</span>
+        <img src="/logo-icon.png" alt="Nexus" className="h-8 w-auto" />
         <div className="hidden md:flex gap-8 text-sm text-nexus-textMuted">
           <Link href="/" className="hover:text-nexus-text transition">Home</Link>
           <Link href="/about" className="hover:text-nexus-text transition">About</Link>
@@ -23,11 +23,7 @@ export default function LandingPage() {
 
       {/* Hero */}
       <section className="px-6 md:px-12 py-24 text-center max-w-4xl mx-auto">
-        <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6">
-          LEARN. CONNECT.
-          <br />
-          COMPETE. EVOLVE.
-        </h1>
+        <img src="/logo-full.png" alt="Nexus — Learn. Connect. Compete. Evolve." className="mx-auto w-full max-w-md mb-6" />
         <p className="text-nexus-textMuted text-lg mb-10 max-w-2xl mx-auto">
           Nexus is an interactive educational platform designed to connect students, teachers
           and schools through learning, challenges and collaboration.
@@ -44,7 +40,9 @@ export default function LandingPage() {
         <div className="flex flex-col items-center gap-2 text-sm text-nexus-textMuted">
           <span className="px-4 py-2 rounded-full border border-nexus-border">STUDENTS</span>
           <span>↕</span>
-          <span className="px-4 py-2 rounded-full bg-nexus-primary text-white font-medium">NEXUS</span>
+          <span className="px-4 py-2 rounded-full bg-nexus-primary flex items-center justify-center">
+            <img src="/logo-icon.png" alt="Nexus" className="h-5 w-auto" />
+          </span>
           <span>↕</span>
           <span className="px-4 py-2 rounded-full border border-nexus-border">TEACHERS</span>
           <span>↕</span>

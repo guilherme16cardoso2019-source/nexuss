@@ -48,8 +48,8 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen flex items-center justify-center px-6 bg-nexus-bg">
       <div className="w-full max-w-sm">
-        <Link href="/" className="block text-center text-xl font-bold mb-8">
-          NEXUS
+        <Link href="/" className="flex justify-center mb-8">
+          <img src="/logo-icon.png" alt="Nexus" className="h-10 w-auto" />
         </Link>
         <form
           onSubmit={handleSubmit}
